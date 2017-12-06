@@ -15,12 +15,11 @@
 # 5) your data
 # 6) R libraries OpenMx, plyr, reshape
 
-voxseg<-1:5000 #SELECTS A SUBSAMPLE OF BRAIN VERTICES FOR PARALLEL COMPUTING
+library(doRedis)
 
-load("../../Giedd.RData") #LOAD DATA
+voxseg<-1:4 #SELECTS A SUBSAMPLE OF BRAIN VERTICES FOR PARALLEL COMPUTING
 
-
-rm(dt_r) # REMOVES CONTRALATERAL VERTEX-LEVEL DATA FROM WORKSPACE TO FREE MEMORY
+processOneVoxel <- function(i) {
 
 #SELECT DEMOGRAPHIC VARIABLES
 dem<-c("FAMILYID","GROUP","MRINUM","PERSONID","SEX","AGESCAN","ordernum","ZYG","TWIN")
@@ -66,16 +65,20 @@ selVars<-c(selVars1,selVars2,selVars3,selVars4,selVars5) # SELECTED VARIABLES FO
 allVars<-c(selVars,ageVars,defVars)
 
 
-
 ## LOAD REQUIRED R LIBRARIES
-library(plyr,lib.loc="~/R/lib/")
-library(reshape,lib.loc="~/R/lib/")
+library(plyr)
+library(reshape)
 library(OpenMx)
 
+if (!("dt_l" %in% ls(envir=globalenv()))) {
+#    print("load raw data")
+#load("http://datadryad.org/bitstream/handle/10255/dryad.62547/DynamicHeritability2.RData") #LOAD DATA
 
-# BEGIN LOOP FOR EVERY VERTEX
-
-for(i in voxseg){
+    load("/opt/DynamicHeritability2.RData",  envir=globalenv())
+    rm(dt_r, envir=globalenv()) # REMOVES CONTRALATERAL VERTEX-LEVEL DATA FROM WORKSPACE TO FREE MEMORY
+}
+ lapply(c('dt_l','demo'), function(n)
+      assign(n, get(n, envir=globalenv())))
 
 #GENERATE TEMPORARY OUTPUT VECTORS FOR VERTEX i
 
@@ -90,7 +93,7 @@ CTvec<-dt_l[i,]*10 #SELECT CORTICAL THICKNESS MEASURES FOR iTH VERTEX
 
 modvars<-c(dem) #SELECT SUBSET VARIABLES TO PUSH TO OMX
 
-subdat<-subset(gf_l, select=modvars) #SUBSET DEMOGRAPHIC/SCAN DATA 
+subdat<-subset(demo, select=modvars) #SUBSET DEMOGRAPHIC/SCAN DATA 
 
 a<-as.data.frame(cbind(subdat,CTvec)) # COMBINE SUBSETTED DEMOGRAPHIC/SCAN DATA WITH iTH VERTEX
 
@@ -125,7 +128,6 @@ slopeS<-regP$coefficients[2]
 
 
 rm(ind,a) # FREE MEMORY
-
 
 #RENAME VARIABLES SO THAT OMX LIKES THEM
 
@@ -189,14 +191,13 @@ fam$SEX_1_3[is.na(fam$SEX_1_3)]<- 0
 fam$SEX_1_4[is.na(fam$SEX_1_4)]<- 0
 fam$SEX_1_5[is.na(fam$SEX_1_5)]<- 0
 
+source("voxAC.R", local=TRUE) # RUN MX MODEL
 
-source("voxAC.R") # RUN MX MODEL
-
-source("concatdata.R") # GENERATE OUTPUT VECTOR
+source("concatdata.R", local=TRUE) # GENERATE OUTPUT VECTOR
 
 outmatrix<-ROIout #ASSIGN OUTPUT VECTOR TO MATRIX (REDUNDANT FOR ERROR CHECKING)
 
-source("submodels.R") # RUN SUBMODELS
+source("submodels.R", local=TRUE) # RUN SUBMODELS
 
 submodels<-submodelstats
 names(submodels)[1]<-"i2"
@@ -204,11 +205,23 @@ names(submodels)[1]<-"i2"
 
 f<-as.data.frame(cbind(t(outmatrix),t(submodels))) # COMBINE RESULTS FROM INITIAL AND SUBMODELS
 
-write.table(f,file="LGCout.txt",col.names=F,row.names=F,na=".",sep=" ",append=TRUE) #RIGHT COMBINED OUTPUT TO TXT FILE
-
-# LOOP TO i+1 VERTEX
-
+f
 } 
+
+registerDoRedis('jobs')
+
+# For testing, start workers locally
+Sys.setenv(OMP_NUM_THREADS=1)
+startLocalWorkers(n=2, queue="jobs")
+
+result <- foreach(i=voxseg,
+                  .noexport=c('demo', 'dt_l'),
+                  .packages=c('plyr','reshape','OpenMx'),
+                  .combine=rbind, .verbose=TRUE) %dopar% processOneVoxel(i)
+
+removeQueue('jobs')
+
+write.table(result,file="LGCout.txt",col.names=F,row.names=F,na=".",sep=" ",append=TRUE) #RIGHT COMBINED OUTPUT TO TXT FILE
 
 ##ASSIGN COLUMN NAMES TO OUTPUT FILES
 
