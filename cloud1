@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# gcloud container clusters create ...
+
+gcloud container clusters get-credentials cluster-1 --zone us-east4-a
+
+kubectl create -f redis.yaml
+kubectl create -f redis_service.yaml
+kubectl create -f rworker.yml
+kubectl get all
+
+wk=rworker-rc-3fxj6
+kubectl cp template.R $wk:/root/
+kubectl exec $wk -it bash
+nohup R --no-init-file --no-save -f template.R &
+
+kubectl scale --replicas=2 rc/rworker-rc
+gcloud container clusters resize cluster-1 --size=2
+
+# when done
+kubectl delete rc/rworker-rc
+kubectl delete rc/redis-svc
+
+# when really done
+gcloud container clusters delete cluster-1

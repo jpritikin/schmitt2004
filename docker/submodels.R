@@ -30,7 +30,7 @@ lgcNoA$Al<-
 		name="Al"
 	)
 
-FnoA<-mxRun(lgcNoA)
+FnoA<-mxRun(lgcNoA, silent=TRUE)
 
 LLnoA<-mxEval(objective,FnoA)
 X2noA<-LLnoA-LL
@@ -54,7 +54,7 @@ lgcNoE$El<-
 		name="El"
 	)
 
-FnoE<-mxRun(lgcNoE)
+FnoE<-mxRun(lgcNoE, silent=TRUE)
 
 LLnoE<-mxEval(objective,FnoE)
 X2noE<-LLnoE-LL
@@ -81,7 +81,7 @@ lgcNoAdel$Al<-
 		name="Al"
 	)
 
-FnoAdel<-mxRun(lgcNoAdel)
+FnoAdel<-mxRun(lgcNoAdel, silent=TRUE)
 
 LLnoAdel<-mxEval(objective,FnoAdel)
 X2noAdel<-LLnoAdel-LL
@@ -106,7 +106,7 @@ lgcNoEdel$El<-
 		name="El"
 	)
 
-FnoEdel<-mxRun(lgcNoEdel)
+FnoEdel<-mxRun(lgcNoEdel, silent=TRUE)
 
 LLnoEdel<-mxEval(objective,FnoEdel)
 X2noEdel<-LLnoEdel-LL
@@ -147,7 +147,7 @@ lgcNoslope$El<-
 		name="El"
 	)
 
-Fnoslope<-mxRun(lgcNoslope)
+Fnoslope<-mxRun(lgcNoslope, silent=TRUE)
 
 LLnoslope<-mxEval(objective,Fnoslope)
 X2noslope<-LLnoslope-LL

@@ -17,9 +17,12 @@
 
 library(doRedis)
 
-voxseg<-1:4 #SELECTS A SUBSAMPLE OF BRAIN VERTICES FOR PARALLEL COMPUTING
+LocalTest <- FALSE
+
+voxseg<-1:5000 #SELECTS A SUBSAMPLE OF BRAIN VERTICES FOR PARALLEL COMPUTING
 
 processOneVoxel <- function(i) {
+print(Sys.time())
 
 #SELECT DEMOGRAPHIC VARIABLES
 dem<-c("FAMILYID","GROUP","MRINUM","PERSONID","SEX","AGESCAN","ordernum","ZYG","TWIN")
@@ -71,10 +74,15 @@ library(reshape)
 library(OpenMx)
 
 if (!("dt_l" %in% ls(envir=globalenv()))) {
-#    print("load raw data")
-#load("http://datadryad.org/bitstream/handle/10255/dryad.62547/DynamicHeritability2.RData") #LOAD DATA
-
+  print("loading data")
+  if (LocalTest) {
     load("/opt/DynamicHeritability2.RData",  envir=globalenv())
+  } else {
+    load(url("http://datadryad.org/bitstream/handle/10255/dryad.62547/DynamicHeritability2.RData"),
+      envir=globalenv())
+  }
+  print("got data")
+
     rm(dt_r, envir=globalenv()) # REMOVES CONTRALATERAL VERTEX-LEVEL DATA FROM WORKSPACE TO FREE MEMORY
 }
  lapply(c('dt_l','demo'), function(n)
@@ -208,20 +216,25 @@ f<-as.data.frame(cbind(t(outmatrix),t(submodels))) # COMBINE RESULTS FROM INITIA
 f
 } 
 
-registerDoRedis('jobs')
+recordOutput <- function(ign, result) {
+    write.table(result,file="LGCout.txt",col.names=F,row.names=F,na=".",sep=" ",append=TRUE) #RIGHT COMBINED OUTPUT TO TXT FILE
+}
 
-# For testing, start workers locally
-Sys.setenv(OMP_NUM_THREADS=1)
-startLocalWorkers(n=2, queue="jobs")
+if (LocalTest) {
+  # For testing, start workers locally and connect to localhost redis
+  registerDoRedis('jobs')
+  Sys.setenv(OMP_NUM_THREADS=1)
+  startLocalWorkers(n=2, queue="jobs")
+} else {
+  registerDoRedis(host='redis', queue='jobs')
+}
 
 result <- foreach(i=voxseg,
-                  .noexport=c('demo', 'dt_l'),
                   .packages=c('plyr','reshape','OpenMx'),
-                  .combine=rbind, .verbose=TRUE) %dopar% processOneVoxel(i)
+                  .init="ign", .combine=recordOutput, .inorder=FALSE,
+                  .verbose=FALSE) %dopar% processOneVoxel(i)
 
 removeQueue('jobs')
-
-write.table(result,file="LGCout.txt",col.names=F,row.names=F,na=".",sep=" ",append=TRUE) #RIGHT COMBINED OUTPUT TO TXT FILE
 
 ##ASSIGN COLUMN NAMES TO OUTPUT FILES
 
