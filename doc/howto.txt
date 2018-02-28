@@ -18,15 +18,14 @@ doRedis::startLocalWorkers(n=2). This function forks to presents us
 with exactly the same execution environment that we would face in the
 cloud.  Debugging can be tricky because doRedis is not thoroughly
 meticulous about reporting error conditions. If data can be fit into
-RAM then it can be efficient to do this once at the beginning of
+RAM then it can be efficient to load it once at the beginning of
 analysis. We need to use global variables because foreach otherwise
 provides a fresh environment. This can be accomplish by code similar
 to,
 
 if (!("dt_l" %in% ls(envir=globalenv()))) {
   print("loading data")
-  load(url("http://datadryad.org/bitstream/handle/10255/dryad.62547/DynamicHeritability2.RData"),
-      envir=globalenv())
+  load("/opt/DynamicHeritability2.RData"), envir=globalenv())
   print("got data")
 
   rm(dt_r, envir=globalenv()) # REMOVES CONTRALATERAL VERTEX-LEVEL DATA FROM WORKSPACE TO FREE MEMORY
@@ -47,10 +46,10 @@ and run Docker images.  Docker does lightweight virtualization. Docker
 images consist of a stack of tar files that describe the content of
 the file systems along with some meta information. Kubernetes
 organizes a set of containers into a pod. Pods are assigned to
-nodes. Nodes represent physical hardware, but are actually more like
-virtualized hardware. A cluster consists of a set of nodes. Clusters
-are created using a vendor specific API and Kubernetes supervises what
-goes on within a cluster.
+nodes. Nodes represent physical hardware, but are actually virtualized
+hardware. A cluster consists of a set of nodes. Clusters are created
+using a vendor specific API and Kubernetes supervises what goes on
+within a cluster.
 
 There are already ready-made docker images for the redis database. To
 launch redis with Kubernetes is a simple affair. However, we also need
@@ -72,9 +71,19 @@ our services using kubectl,
 
 kubectl create -f redis.yaml
 kubectl create -f redis_service.yaml
-kubectl create -f rworker.yml
+kubectl create -f rworker.yaml
 
-# TODO output from kubectl get all
+This results in the following services running,
+
+kubectl get all
+
+NAME                  READY     STATUS    RESTARTS   AGE
+po/redis-svc-ggcnw    1/1       Running   0          5m
+po/rworker-rc-g196d   1/1       Running   0          1m
+
+NAME            DESIRED   CURRENT   READY     AGE
+rc/redis-svc    1         1         1         5m
+rc/rworker-rc   1         1         1         1m
 
 We have a worker running, but we still need to kick off the
 computation. This is accomplished with a few manual steps. Set a shell
@@ -82,8 +91,8 @@ variable to the name of the first worker,
 
 wk=rworker-rc-3fxj6
 
-In addition to working, this node will also distribute work and collet
-the results. We copy our script over and open an ssh session to the node,
+In addition to working, this node will also distribute work and collect
+results. We copy our script over and open an ssh session to the node,
 
 kubectl cp template.R $wk:/root/
 kubectl exec $wk -it bash
@@ -112,7 +121,7 @@ kubectl scale --replicas=32 rc/rworker-rc   # for 32 workers
 You probably want more workers than nodes because each node offers
 more than one CPU. For really big computations, you probably want to
 progressively backup the results. Cloud machines are usually reliable,
-but natural disasters happen. Backups will ensure that it is
+but natural disasters can happen. Backups will ensure that it is
 relatively painless to resume after interruption.
 
 As soon as the computation is done, ensure that the cluster is

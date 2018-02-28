@@ -20,5 +20,5 @@ spec:
         image: jpritikin/worker
         resources:
           requests:
-            cpu: "500m"
-            memory: "1Gi"
+            cpu: "600m"
+            memory: "1.4Gi"

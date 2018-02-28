@@ -1,21 +1,25 @@
 #!/bin/bash
 
-# gcloud container clusters create ...
+gcloud beta container --project "rare-array-185421" clusters create "cluster-1" --zone "us-east4-a" --username="admin" --cluster-version "1.7.8-gke.0" --machine-type "custom-2-4096" --image-type "COS" --disk-size "100" --scopes "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "2" --network "default" --enable-cloud-logging --enable-cloud-monitoring --subnetwork "default" --enable-legacy-authorization
+
+gcloud beta container --project "rare-array-185421" clusters create "cluster-1" --zone "us-east4-a" --username="admin" --cluster-version "1.7.8-gke.0" --machine-type "custom-32-65536" --image-type "COS" --disk-size "100" --scopes "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --network "default" --enable-cloud-logging --enable-cloud-monitoring --subnetwork "default" --enable-legacy-authorization
 
 gcloud container clusters get-credentials cluster-1 --zone us-east4-a
 
 kubectl create -f redis.yaml
 kubectl create -f redis_service.yaml
-kubectl create -f rworker.yml
+kubectl create -f rworker.yaml
 kubectl get all
 
 wk=rworker-rc-3fxj6
 kubectl cp template.R $wk:/root/
 kubectl exec $wk -it bash
 nohup R --no-init-file --no-save -f template.R &
+kubectl cp  $wk:/root/LGCout.txt LGCout.txt
+wc -l LGCout.txt
 
-kubectl scale --replicas=2 rc/rworker-rc
 gcloud container clusters resize cluster-1 --size=2
+kubectl scale --replicas=2 rc/rworker-rc
 
 # when done
 kubectl delete rc/rworker-rc

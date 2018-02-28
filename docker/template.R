@@ -19,7 +19,8 @@ library(doRedis)
 
 LocalTest <- FALSE
 
-voxseg<-1:5000 #SELECTS A SUBSAMPLE OF BRAIN VERTICES FOR PARALLEL COMPUTING
+totalVoxels <- 40962 #rows(dt_l)
+voxseg<-1:totalVoxels #SELECTS A SUBSAMPLE OF BRAIN VERTICES FOR PARALLEL COMPUTING
 
 processOneVoxel <- function(i) {
 print(Sys.time())
@@ -78,8 +79,9 @@ if (!("dt_l" %in% ls(envir=globalenv()))) {
   if (LocalTest) {
     load("/opt/DynamicHeritability2.RData",  envir=globalenv())
   } else {
-    load(url("http://datadryad.org/bitstream/handle/10255/dryad.62547/DynamicHeritability2.RData"),
-      envir=globalenv())
+    load("/root/DynamicHeritability2.RData", envir=globalenv())
+#    load(url("http://datadryad.org/bitstream/handle/10255/dryad.62547/DynamicHeritability2.RData"),
+#      envir=globalenv())
   }
   print("got data")
 
